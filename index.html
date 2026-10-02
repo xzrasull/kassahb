@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ШтрихКасса</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="config.js"></script>
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem("shtrih-kassa-theme");
+      document.documentElement.setAttribute("data-theme", saved === "dark" ? "dark" : "light");
+    }catch(e){
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  })();
+</script>
+<style>
+  :root{
+    --bg-1:#EFF1F3;
+    --bg-2:#E0E2E9;
+    --surface:#FFFFFF;
+    --surface-2:#F5F7F7;
+    --text:#191A23;
+    --text-muted:#6B6D79;
+    --border:#E3E5EC;
+
+    --pink:#FC89D3;
+    --pink-ink:#C81E8C;
+    --pink-soft:#FDEBF6;
+    --purple:#BA87F8;
+    --purple-strong:#8B5CF6;
+    --accent:#7C3AED;
+    --accent-strong:#6B21D8;
+    --accent-soft:#F1E9FE;
+    --green:#D7FAA0;
+    --green-ink:#4C7A14;
+    --green-soft:#EEFBD9;
+
+    --warn:#B06A11;
+    --warn-soft:#FBEEDC;
+    --danger:#B3392C;
+    --danger-soft:#F8E6E3;
+    --shadow: 0 1px 2px rgba(30,20,50,0.06), 0 8px 22px rgba(30,20,50,0.07);
+    --radius: 14px;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg-1:#1B1A22; --bg-2:#121218; --surface:#211F2A; --surface-2:#282534;
+      --text:#EEECF5; --text-muted:#A6A3B8; --border:#37344A;
+      --pink:#FC89D3; --pink-ink:#FBA6DE; --pink-soft:#3A2233;
+      --purple:#BA87F8; --purple-strong:#9E70F8;
+      --accent:#A683FA; --accent-strong:#B99BFB; --accent-soft:#2C2242;
+      --green:#D7FAA0; --green-ink:#C3F17E; --green-soft:#233118;
+      --warn:#E3A75A; --warn-soft:#3C2E17; --danger:#E58274; --danger-soft:#3E241F;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg-1:#1B1A22; --bg-2:#121218; --surface:#211F2A; --surface-2:#282534;
+    --text:#EEECF5; --text-muted:#A6A3B8; --border:#37344A;
+    --pink:#FC89D3; --pink-ink:#FBA6DE; --pink-soft:#3A2233;
+    --purple:#BA87F8; --purple-strong:#9E70F8;
+    --accent:#A683FA; --accent-strong:#B99BFB; --accent-soft:#2C2242;
+    --green:#D7FAA0; --green-ink:#C3F17E; --green-soft:#233118;
+    --warn:#E3A75A; --warn-soft:#3C2E17; --danger:#E58274; --danger-soft:#3E241F;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 24px rgba(0,0,0,0.35);
+  }
+
+  *{box-sizing:border-box;}
+  html, body{ height:100%; }
+  body{
+    background: radial-gradient(120% 90% at 15% -10%, color-mix(in srgb, var(--purple) 22%, transparent) 0%, transparent 55%),
+                radial-gradient(110% 85% at 100% 0%, color-mix(in srgb, var(--pink) 20%, transparent) 0%, transparent 55%),
+                radial-gradient(100% 70% at 85% 100%, color-mix(in srgb, var(--green) 26%, transparent) 0%, transparent 60%),
+                radial-gradient(140% 120% at 50% -10%, var(--bg-1) 0%, var(--bg-2) 70%);
+    background-attachment:fixed;
+    color:var(--text);
+    font-family:var(--sans);
+    margin:0;
+    padding-inline:16px;
+    padding-block:20px 90px;
+  }
+  .mono{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  #app{ max-width:1080px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+
+  /* header */
+  .app-header{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{
+    width:34px; height:34px; border-radius:10px;
+    background:linear-gradient(135deg, var(--accent), var(--pink-ink));
+    color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; flex-shrink:0;
+    box-shadow:var(--shadow);
+  }
+  .brand-name{ font-weight:800; font-size:17px; letter-spacing:-0.01em; }
+  .status-pill{
+    display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted);
+    padding:5px 10px; border-radius:999px; background:var(--surface); border:1px solid var(--border);
+    box-shadow:var(--shadow);
+  }
+  .status-dot{ width:7px; height:7px; border-radius:50%; background:var(--text-muted); }
+  .status-dot.ok{ background:var(--green-ink); }
+  .status-dot.off{ background:var(--warn); }
+  .header-right{ display:flex; align-items:center; gap:8px; }
+  .theme-toggle{
+    appearance:none; border:1px solid var(--border); background:var(--surface); color:var(--text-muted);
+    width:32px; height:32px; border-radius:999px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:var(--shadow); flex-shrink:0; position:relative;
+  }
+  .theme-toggle:hover{ color:var(--accent); }
+  .theme-toggle:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .theme-icon{ width:16px; height:16px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+  .theme-icon-moon{ display:none; }
+  .theme-toggle.is-dark .theme-icon-sun{ display:none; }
+  .theme-toggle.is-dark .theme-icon-moon{ display:block; }
+  .logout-btn{
+    appearance:none; border:1px solid var(--border); background:var(--surface); color:var(--text-muted);
+    padding:6px 12px; border-radius:999px; font-family:var(--sans); font-weight:700; font-size:12px; cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+  .logout-btn:hover{ color:var(--danger); }
+
+  /* tabs */
+  .tabbar{
+    display:flex; gap:4px; background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:5px; width:fit-content; box-shadow:var(--shadow);
+  }
+  .tab{
+    appearance:none; border:none; background:transparent; color:var(--text-muted);
+    font-family:var(--sans); font-weight:700; font-size:13.5px; padding:6px 14px 6px 6px;
+    border-radius:10px; cursor:pointer; display:flex; align-items:center; gap:8px;
+  }
+  .tab-icon{ width:24px; height:24px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .tab-icon svg{ width:13px; height:13px; }
+  .tab-icon-kassa{ background:var(--accent-soft); color:var(--accent); }
+  .tab-icon-tovary{ background:var(--pink-soft); color:var(--pink-ink); }
+  .tab-icon-history{ background:var(--green-soft); color:var(--green-ink); }
+  .tab[aria-selected="true"]{ background:var(--surface-2); color:var(--text); }
+  .tab:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .banner{
+    display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:12px;
+    background:var(--warn-soft); color:var(--text); font-size:13.5px; border:1px solid var(--border);
+  }
+  .banner b{ font-weight:700; }
+  .banner.danger{ background:var(--danger-soft); }
+  [hidden]{ display:none !important; }
+
+  /* cards */
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:18px;
+  }
+  .card-title{ font-weight:700; font-size:15px; margin:0 0 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .card-title .hint{ font-weight:500; font-size:12.5px; color:var(--text-muted); }
+
+  /* buttons / inputs */
+  .btn{
+    appearance:none; border:1px solid var(--border); background:var(--surface-2); color:var(--text);
+    font-family:var(--sans); font-weight:700; font-size:13.5px; padding:10px 16px;
+    border-radius:10px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
+  }
+  .btn:hover{ filter:brightness(0.97); }
+  :root[data-theme="dark"] .btn:hover{ filter:brightness(1.15); }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .btn:hover{ filter:brightness(1.15); } }
+  .btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn-primary:hover{ background:var(--accent-strong); border-color:var(--accent-strong); filter:none; }
+  .btn-ghost{ background:transparent; border-color:transparent; }
+  .btn-ghost:hover{ background:var(--accent-soft); }
+  .btn-danger{ background:transparent; border-color:transparent; color:var(--danger); }
+  .btn-block{ width:100%; justify-content:center; }
+  .btn:disabled{ opacity:0.5; cursor:not-allowed; }
+  .btn-sm{ padding:7px 11px; font-size:12.5px; }
+
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{ font-size:12px; font-weight:700; color:var(--text-muted); }
+  .input{
+    font-family:var(--sans); font-size:14px; padding:10px 12px; border-radius:10px;
+    border:1px solid var(--border); background:var(--surface); color:var(--text); width:100%;
+  }
+  .input:focus-visible, .input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  .input-mono{ font-family:var(--mono); }
+
+  /* auth screen */
+  .auth-wrap{ min-height:80vh; display:flex; align-items:center; justify-content:center; }
+  .auth-card{ width:100%; max-width:360px; display:flex; flex-direction:column; gap:16px; }
+  .auth-logo{ display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
+  .auth-form{ display:flex; flex-direction:column; gap:12px; }
+  .auth-error{ font-size:12.5px; color:var(--danger); min-height:16px; }
+
+  /* scan bar */
+  .scan-row{ display:flex; gap:10px; align-items:center; }
+  .scan-input-wrap{ position:relative; flex:1; }
+  .scan-icon{ position:absolute; left:13px; top:50%; transform:translateY(-50%); width:18px; height:18px; color:var(--text-muted); pointer-events:none; }
+  #scanInput{
+    width:100%; padding:14px 14px 14px 40px; border-radius:12px; border:1.5px solid var(--border);
+    background:var(--surface-2); color:var(--text); font-family:var(--mono); font-size:16px; letter-spacing:0.02em;
+  }
+  #scanInput:focus{ outline:2px solid var(--accent); outline-offset:1px; background:var(--surface); }
+
+  /* unmatched panel */
+  .unmatched{ margin-top:12px; padding:14px; border-radius:12px; background:var(--warn-soft); border:1px solid var(--border); }
+  .unmatched-head{ display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:700; margin-bottom:10px; }
+  .unmatched-code{ font-family:var(--mono); background:var(--surface); padding:2px 7px; border-radius:6px; border:1px solid var(--border); }
+  .unmatched-grid{ display:grid; grid-template-columns:1.4fr 0.8fr; gap:10px; }
+  .unmatched-grid-3{ grid-template-columns:1.2fr 0.8fr 0.7fr; }
+  .unmatched-actions{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; flex-wrap:wrap; }
+  .checkbox-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--text-muted); }
+
+  /* kassa grid */
+  .kassa-grid{ display:grid; grid-template-columns:1fr 320px; gap:16px; align-items:start; }
+  @media (max-width:820px){ .kassa-grid{ grid-template-columns:1fr; } }
+
+  table.cart-table{ width:100%; border-collapse:collapse; }
+  table.cart-table th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); font-weight:700; padding:0 8px 8px; }
+  table.cart-table td{ padding:10px 8px; border-top:1px solid var(--border); vertical-align:middle; }
+  table.cart-table th:not(:first-child), table.cart-table td:not(:first-child){ text-align:right; }
+  .item-name{ font-weight:600; font-size:14px; display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+  .item-code{ font-size:11.5px; color:var(--text-muted); font-family:var(--mono); margin-top:2px; }
+  .variant-pill{
+    display:inline-flex; align-items:center; padding:1px 8px; border-radius:999px;
+    background:var(--pink-soft); color:var(--pink-ink); font-size:11px; font-weight:700; line-height:1.6;
+  }
+  .qty-stepper{ display:inline-flex; align-items:center; gap:8px; background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:3px; }
+  .qty-btn{ appearance:none; border:none; background:var(--surface); width:24px; height:24px; border-radius:6px; cursor:pointer; font-size:15px; font-weight:700; color:var(--text); box-shadow:var(--shadow); }
+  .qty-val{ min-width:20px; text-align:center; font-size:13.5px; font-weight:600; }
+  .icon-btn{ appearance:none; border:none; background:transparent; color:var(--text-muted); cursor:pointer; font-size:15px; padding:4px 6px; border-radius:6px; }
+  .icon-btn:hover{ color:var(--danger); background:var(--danger-soft); }
+
+  .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px; padding:36px 10px; color:var(--text-muted); }
+  .empty-state svg{ width:34px; height:34px; opacity:0.55; }
+  .empty-state .et-title{ color:var(--text); font-weight:700; font-size:14.5px; }
+  .empty-state .et-sub{ font-size:13px; max-width:280px; }
+
+  /* summary */
+  .summary-card{
+    position:sticky; top:16px; display:flex; flex-direction:column; gap:14px;
+    background:linear-gradient(160deg, var(--surface) 55%, var(--accent-soft) 180%);
+  }
+  .summary-total-label{ font-size:12px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+  .summary-total-value{ font-size:34px; font-weight:800; font-family:var(--mono); letter-spacing:-0.01em; color:var(--green-ink); }
+  .summary-count{ font-size:13px; color:var(--text-muted); }
+  @media (max-width:820px){
+    .summary-card{
+      position:fixed; top:auto; left:0; right:0; bottom:0; z-index:20; border-radius:16px 16px 0 0;
+      padding:14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+      flex-direction:row; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .summary-card .summary-block{ display:flex; flex-direction:column; }
+    .summary-total-value{ font-size:22px; }
+    .summary-card .btn-block{ width:auto; }
+    .summary-card .btn-ghost{ display:none; }
+    body{ padding-bottom:110px; }
+  }
+
+  /* tovary tab */
+  .tovary-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .stat-inline{ display:flex; gap:18px; flex-wrap:wrap; }
+  .stat-block .stat-num{ font-size:20px; font-weight:800; font-family:var(--mono); }
+  .stat-block .stat-label{ font-size:11.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.03em; }
+  .settings-row{ display:flex; align-items:flex-end; gap:10px; }
+  .settings-row .field{ width:110px; }
+
+  .import-drop{
+    border:1.5px dashed var(--border); border-radius:12px; padding:20px; text-align:center;
+    display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--text-muted); font-size:13px;
+  }
+  .import-drop svg{ width:26px; height:26px; opacity:0.6; }
+  input[type="file"]{ display:none; }
+
+  .preview-bar{ display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--accent-soft); color:var(--accent-ink); padding:12px 14px; border-radius:10px; font-size:13.5px; flex-wrap:wrap; }
+  .preview-actions{ display:flex; gap:8px; }
+
+  .table-scroll{ max-height:420px; overflow:auto; border:1px solid var(--border); border-radius:12px; }
+  table.data-table{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.data-table th{ position:sticky; top:0; background:var(--surface-2); text-align:left; padding:9px 12px; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); border-bottom:1px solid var(--border); }
+  table.data-table td{ padding:8px 12px; border-top:1px solid var(--border); }
+  table.data-table tr:hover td{ background:var(--surface-2); }
+  .row-edit-btn{ font-size:11.5px; color:var(--accent); background:none; border:none; cursor:pointer; font-weight:700; padding:0; }
+  .edit-inline{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .edit-inline input{ padding:6px 8px; font-size:13px; }
+
+  .search-row{ margin-bottom:10px; }
+
+  /* history */
+  .history-list{ display:flex; flex-direction:column; gap:8px; }
+  .history-item{ border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .history-row{
+    width:100%; appearance:none; border:none; background:var(--surface); color:var(--text);
+    display:grid; grid-template-columns:1fr auto auto auto; gap:14px; align-items:center;
+    padding:12px 14px; cursor:pointer; font-family:var(--sans); font-size:13.5px; text-align:left;
+  }
+  .history-row:hover{ background:var(--surface-2); }
+  .hist-count{ color:var(--text-muted); }
+  .hist-total{ font-weight:700; color:var(--green-ink); }
+  .chev{ color:var(--text-muted); transition:transform 0.15s; }
+  .history-row[aria-expanded="true"] .chev{ transform:rotate(90deg); }
+  .history-detail{ padding:4px 14px 12px; background:var(--surface-2); border-top:1px solid var(--border); }
+  .hist-line{ display:flex; justify-content:space-between; font-size:13px; padding:5px 0; color:var(--text-muted); }
+  .hist-line span:first-child{ color:var(--text); }
+  .load-more{ align-self:center; }
+  .footnote{ font-size:11.5px; color:var(--text-muted); text-align:center; padding-top:4px; }
+
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translate(-50%,12px); opacity:0;
+    background:var(--text); color:var(--surface); padding:10px 16px; border-radius:10px; font-size:13px; font-weight:600;
+    box-shadow:var(--shadow); transition:opacity 0.18s, transform 0.18s; z-index:50; pointer-events:none; max-width:90vw; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%,0); }
+  .toast.error{ background:var(--danger); color:#fff; }
+  .toast.success{ background:var(--green-ink); color:#fff; }
+
+  @media (max-width:520px){
+    .unmatched-grid{ grid-template-columns:1fr; }
+    table.cart-table thead{ display:none; }
+    table.cart-table td{ padding:6px 4px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SETUP NOTICE (shown only if config.js still has placeholder values) -->
+<div id="setupNotice" class="auth-wrap" hidden>
+  <div class="auth-card">
+    <div class="card banner danger" style="flex-direction:column; align-items:flex-start; gap:8px;">
+      <b>Нужно заполнить config.js</b>
+      <span>Откройте файл <code>config.js</code> рядом с этой страницей и впишите туда Project URL и anon key вашего проекта Supabase (Project Settings → API). Подробности — в README.md.</span>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen" class="auth-wrap" hidden>
+  <div class="auth-card card">
+    <div class="auth-logo">
+      <div class="brand-mark" style="width:44px;height:44px;font-size:18px;">ШК</div>
+      <div class="brand-name" style="font-size:19px;">ШтрихКасса</div>
+      <div style="color:var(--text-muted); font-size:13px;">Войдите, чтобы открыть кассу</div>
+    </div>
+    <form class="auth-form" id="loginForm">
+      <div class="field"><label for="loginEmail">Email</label><input class="input" id="loginEmail" type="email" autocomplete="username" required></div>
+      <div class="field"><label for="loginPassword">Пароль</label><input class="input" id="loginPassword" type="password" autocomplete="current-password" required></div>
+      <div class="auth-error" id="loginError"></div>
+      <button class="btn btn-primary btn-block" type="submit" id="loginSubmit">Войти</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <div class="app-header">
+    <div class="brand">
+      <div class="brand-mark">ШК</div>
+      <div class="brand-name">ШтрихКасса</div>
+    </div>
+    <div class="header-right">
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Светлая тема" title="Светлая / тёмная тема">
+        <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
+      </button>
+      <div id="statusPill" class="status-pill"><span class="status-dot ok" id="statusDot"></span><span id="statusText">Подключено</span></div>
+      <button class="logout-btn" id="logoutBtn" type="button">Выйти</button>
+    </div>
+  </div>
+
+  <div class="tabbar" role="tablist">
+    <button class="tab" role="tab" data-tab="kassa" aria-selected="true">
+      <span class="tab-icon tab-icon-kassa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2Z"/><path d="M12 12v4"/></svg></span>
+      Касса
+    </button>
+    <button class="tab" role="tab" data-tab="tovary" aria-selected="false">
+      <span class="tab-icon tab-icon-tovary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span>
+      Товары
+    </button>
+    <button class="tab" role="tab" data-tab="history" aria-selected="false">
+      <span class="tab-icon tab-icon-history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
+      История
+    </button>
+  </div>
+
+  <!-- KASSA -->
+  <section id="tab-kassa" class="tab-panel">
+    <div class="kassa-grid">
+      <div class="card">
+        <div class="card-title">Сканирование<span class="hint">Enter после каждого штрихкода</span></div>
+        <div class="scan-row">
+          <div class="scan-input-wrap">
+            <svg class="scan-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M11 8v8M14 8v8M17 8v8"/></svg>
+            <input id="scanInput" type="text" inputmode="text" autocomplete="off" placeholder="Отсканируйте штрихкод…" />
+          </div>
+          <button class="btn" id="manualAddToggle" type="button">Ввести вручную</button>
+        </div>
+
+        <div id="manualLookupRow" class="unmatched" hidden>
+          <div class="unmatched-head">Найти по коду вручную</div>
+          <div class="scan-row">
+            <input id="manualLookupInput" class="input input-mono" placeholder="Код товара" style="flex:1" />
+            <button class="btn btn-primary" id="manualLookupGo" type="button">Найти</button>
+          </div>
+        </div>
+
+        <div id="unmatchedPanel" class="unmatched" hidden>
+          <div class="unmatched-head">Товар не найден: <span class="unmatched-code mono" id="unmatchedCode"></span></div>
+          <div class="unmatched-grid unmatched-grid-3">
+            <div class="field"><label for="uName">Наименование</label><input class="input" id="uName" placeholder="Название товара" /></div>
+            <div class="field"><label for="uVariant">Оттенок <span style="font-weight:400;">(если есть)</span></label><input class="input" id="uVariant" placeholder="напр. красный" /></div>
+            <div class="field"><label for="uPrice">Цена</label><input class="input input-mono" id="uPrice" placeholder="0.00" inputmode="decimal" /></div>
+          </div>
+          <div class="unmatched-actions">
+            <label class="checkbox-row"><input type="checkbox" id="uSaveToCatalog" checked /> сохранить в справочник товаров</label>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-ghost" id="uCancel" type="button">Отмена</button>
+              <button class="btn btn-primary" id="uConfirm" type="button">Добавить в чек</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <div id="cartEmpty" class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6h15l-1.5 9h-12L4 3H2"/><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+            <div class="et-title">Корзина пуста</div>
+            <div class="et-sub">Отсканируйте штрихкод товара — он появится здесь</div>
+          </div>
+          <div id="cartTableWrap" hidden>
+            <table class="cart-table">
+              <thead><tr><th>Товар</th><th>Цена</th><th>Кол-во</th><th>Сумма</th><th></th></tr></thead>
+              <tbody id="cartBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card summary-card">
+        <div class="summary-block">
+          <div class="summary-total-label">Итого к оплате</div>
+          <div class="summary-total-value mono"><span id="summaryTotal">0,00</span></div>
+          <div class="summary-count" id="summaryCount">0 товаров</div>
+        </div>
+        <button class="btn btn-primary btn-block" id="saveReceiptBtn" disabled>Сохранить чек</button>
+        <button class="btn btn-ghost btn-block" id="clearCartBtn">Очистить корзину</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOVARY -->
+  <section id="tab-tovary" class="tab-panel" hidden>
+    <div class="card" style="display:flex; flex-direction:column; gap:16px;">
+      <div class="tovary-head">
+        <div class="stat-inline">
+          <div class="stat-block"><div class="stat-num mono" id="productCount">0</div><div class="stat-label">товаров в базе</div></div>
+        </div>
+        <div class="settings-row">
+          <div class="field"><label for="currencyInput">Валюта</label><input class="input" id="currencyInput" maxlength="6" /></div>
+          <label class="btn btn-primary" for="fileInput">Загрузить Excel</label>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+        </div>
+      </div>
+
+      <div id="importDrop" class="import-drop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        Файл со столбцами: штрихкод, наименование, цена (в любом порядке — определится автоматически). Импорт заменит текущую базу — так же, как в Supabase, откуда её всегда можно посмотреть и подправить таблицей.
+      </div>
+
+      <div id="importPreview" hidden></div>
+
+      <div>
+        <div class="card-title" style="margin-bottom:8px;">Добавить товар вручную</div>
+        <div class="unmatched-grid" style="grid-template-columns:1fr 1.2fr 0.9fr 0.8fr auto; gap:8px;">
+          <input class="input input-mono" id="addBarcode" placeholder="Штрихкод" />
+          <input class="input" id="addName" placeholder="Наименование" />
+          <input class="input" id="addVariant" placeholder="Оттенок (если есть)" />
+          <input class="input input-mono" id="addPrice" placeholder="Цена" inputmode="decimal" />
+          <button class="btn" id="addProductBtn" type="button">Добавить</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="search-row"><input class="input" id="catalogSearch" placeholder="Поиск по названию или штрихкоду…" /></div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>Штрихкод</th><th>Наименование</th><th>Оттенок</th><th>Цена</th><th></th></tr></thead>
+            <tbody id="catalogBody"></tbody>
+          </table>
+        </div>
+        <div class="footnote" id="catalogFootnote"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="tab-history" class="tab-panel" hidden>
+    <div class="card">
+      <div class="card-title">История продаж</div>
+      <div id="historyEmpty" class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        <div class="et-title">Чеков ещё нет</div>
+        <div class="et-sub">Оформите первую продажу на вкладке «Касса»</div>
+      </div>
+      <div id="historyList" class="history-list" hidden></div>
+      <div style="display:flex; justify-content:center; margin-top:12px;">
+        <button class="btn load-more" id="loadMoreBtn" hidden>Показать ещё</button>
+      </div>
+      <div class="footnote">Хранится в вашей базе Supabase — доступна и из панели Supabase как обычная таблица.</div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var cfg = window.SHTRIH_KASSA_CONFIG || {};
+  var isPlaceholder = !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY ||
+    cfg.SUPABASE_URL.indexOf("YOUR-PROJECT") !== -1 || cfg.SUPABASE_ANON_KEY.indexOf("YOUR-ANON") !== -1;
+
+  if(isPlaceholder){
+    document.getElementById("setupNotice").hidden = false;
+    return;
+  }
+
+  var sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+
+  var state = {
+    currency: "смн",
+    products: new Map(),        // barcode -> {barcode,name,variant,price}
+    cart: new Map(),            // key -> {barcode,name,variant,price,qty,manual}
+    historyDocs: [],
+    historyLimit: 30,
+    realtimeChannel: null,
+    unmatchedBarcode: null,
+    pendingImport: null,
+    currentTab: "kassa"
+  };
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function fmt(n){
+    var v = Math.round((Number(n)||0) * 100) / 100;
+    return v.toLocaleString("ru-RU", {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function fmtMoney(n){ return fmt(n) + " " + state.currency; }
+  function fmtDateTime(iso){
+    try{ return new Intl.DateTimeFormat("ru-RU", {dateStyle:"medium", timeStyle:"short"}).format(new Date(iso)); }
+    catch(e){ return iso; }
+  }
+  function showToast(msg, variant){
+    var t = $("toast");
+    t.textContent = msg;
+    var cls = variant === "success" ? " success" : (variant ? " error" : "");
+    t.className = "toast show" + cls;
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(function(){ t.className = "toast"; }, 2600);
+  }
+
+  /* ---------- tabs ---------- */
+  function selectTab(name){
+    state.currentTab = name;
+    ["kassa","tovary","history"].forEach(function(t){ $("tab-" + t).hidden = t !== name; });
+    document.querySelectorAll(".tab").forEach(function(b){
+      b.setAttribute("aria-selected", b.dataset.tab === name ? "true" : "false");
+    });
+    if(name === "kassa") focusScan();
+  }
+  document.querySelectorAll(".tab").forEach(function(b){
+    b.addEventListener("click", function(){ selectTab(b.dataset.tab); });
+  });
+
+  function focusScan(){
+    setTimeout(function(){
+      var el = $("scanInput");
+      if(el && document.activeElement !== el && !isTypingElsewhere()) el.focus();
+    }, 30);
+  }
+  function isTypingElsewhere(){
+    var a = document.activeElement;
+    if(!a) return false;
+    var tag = a.tagName;
+    return (tag === "INPUT" || tag === "TEXTAREA") && a.id !== "scanInput";
+  }
+
+  /* ---------- theme ---------- */
+  function applyThemeUI(theme){
+    var btn = $("themeToggle");
+    btn.classList.toggle("is-dark", theme === "dark");
+    btn.title = theme === "dark" ? "Сейчас тёмная тема — нажмите для светлой" : "Сейчас светлая тема — нажмите для тёмной";
+  }
+  function setTheme(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    try{ localStorage.setItem("shtrih-kassa-theme", theme); }catch(e){}
+    applyThemeUI(theme);
+  }
+  function initTheme(){
+    applyThemeUI(document.documentElement.getAttribute("data-theme") || "light");
+    $("themeToggle").addEventListener("click", function(){
+      setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+  }
+
+  /* ---------- auth ---------- */
+  async function checkSession(){
+    var { data } = await sb.auth.getSession();
+    if(data && data.session){
+      showApp();
+    }else{
+      $("authScreen").hidden = false;
+    }
+  }
+
+  $("loginForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var email = $("loginEmail").value.trim();
+    var password = $("loginPassword").value;
+    var errEl = $("loginError");
+    var btn = $("loginSubmit");
+    errEl.textContent = "";
+    btn.disabled = true; btn.textContent = "Входим…";
+    var { error } = await sb.auth.signInWithPassword({ email: email, password: password });
+    btn.disabled = false; btn.textContent = "Войти";
+    if(error){
+      errEl.textContent = "Не удалось войти: проверьте email и пароль.";
+      return;
+    }
+    $("authScreen").hidden = true;
+    showApp();
+  });
+
+  $("logoutBtn").addEventListener("click", async function(){
+    if(state.realtimeChannel) sb.removeChannel(state.realtimeChannel);
+    await sb.auth.signOut();
+    location.reload();
+  });
+
+  async function showApp(){
+    $("authScreen").hidden = true;
+    $("app").hidden = false;
+    initTheme();
+    wireEvents();
+    await loadSettings();
+    await loadCatalog();
+    await loadHistory(state.historyLimit);
+    subscribeRealtime();
+    renderCart();
+    focusScan();
+  }
+
+  /* ---------- settings ---------- */
+  async function loadSettings(){
+    try{
+      var { data, error } = await sb.from("settings").select("value").eq("key", "currency").maybeSingle();
+      if(!error && data && data.value && data.value.currency) state.currency = data.value.currency;
+    }catch(e){}
+    $("currencyInput").value = state.currency;
+  }
+  async function saveCurrency(val){
+    val = (val || "").trim() || "смн";
+    state.currency = val;
+    renderCart(); renderCatalogTab(); renderHistoryTab();
+    try{ await sb.from("settings").upsert({ key: "currency", value: { currency: val } }); }
+    catch(e){ console.error(e); }
+  }
+
+  /* ---------- catalog ---------- */
+  async function loadCatalog(){
+    state.products.clear();
+    try{
+      var pageSize = 1000;
+      var from = 0;
+      while(true){
+        var { data, error } = await sb.from("products").select("*").order("name", { ascending: true }).range(from, from + pageSize - 1);
+        if(error) throw error;
+        (data || []).forEach(function(p){
+          state.products.set(p.barcode, { barcode: p.barcode, name: p.name, variant: p.variant || "", price: Number(p.price) });
+        });
+        if(!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+    }catch(e){
+      console.error(e);
+      showToast("Не удалось загрузить товары из базы", "error");
+    }
+    renderCatalogTab();
+  }
+
+  function chunk(arr, size){
+    var out = [];
+    for(var i=0;i<arr.length;i+=size) out.push(arr.slice(i, i+size));
+    return out;
+  }
+
+  async function upsertProduct(barcode, name, variant, price){
+    state.products.set(String(barcode), { barcode: String(barcode), name: name, variant: variant || "", price: price });
+    renderCatalogTab();
+    try{
+      var { error } = await sb.from("products").upsert({ barcode: String(barcode), name: name, variant: variant || "", price: price });
+      if(error) throw error;
+    }catch(e){
+      console.error(e);
+      showToast("Не сохранилось в базе — проверьте связь и повторите", "error");
+    }
+  }
+
+  async function replaceCatalog(items){
+    var oldBarcodes = Array.from(state.products.keys());
+    var newBarcodes = items.map(function(p){ return p.barcode; });
+    try{
+      var batches = chunk(items, 500);
+      for(var i=0;i<batches.length;i++){
+        var { error } = await sb.from("products").upsert(batches[i]);
+        if(error) throw error;
+      }
+      var toDelete = oldBarcodes.filter(function(b){ return newBarcodes.indexOf(b) === -1; });
+      var delBatches = chunk(toDelete, 300);
+      for(var j=0;j<delBatches.length;j++){
+        if(delBatches[j].length === 0) continue;
+        var res = await sb.from("products").delete().in("barcode", delBatches[j]);
+        if(res.error) throw res.error;
+      }
+      state.products.clear();
+      items.forEach(function(p){ state.products.set(p.barcode, p); });
+      return true;
+    }catch(e){
+      console.error(e);
+      showToast("Ошибка импорта в базу: " + (e.message || ""), "error");
+      await loadCatalog();
+      return false;
+    }
+  }
+
+  function renderCatalogTab(){
+    $("productCount").textContent = state.products.size;
+    var q = ($("catalogSearch").value || "").trim().toLowerCase();
+    var all = Array.from(state.products.values());
+    var filtered = q ? all.filter(function(p){
+      return p.barcode.toLowerCase().indexOf(q) !== -1 || (p.name||"").toLowerCase().indexOf(q) !== -1 || (p.variant||"").toLowerCase().indexOf(q) !== -1;
+    }) : all;
+    var shown = filtered.slice(0, 200);
+    var body = $("catalogBody");
+    if(shown.length === 0){
+      body.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted); text-align:center; padding:20px;">' +
+        (state.products.size === 0 ? "Справочник пуст — загрузите Excel-файл выше" : "Ничего не найдено") + '</td></tr>';
+    }else{
+      body.innerHTML = shown.map(function(p){
+        var vcell = p.variant ? '<span class="variant-pill">' + esc(p.variant) + '</span>' : '<span style="color:var(--text-muted);">—</span>';
+        return '<tr data-barcode="' + esc(p.barcode) + '">' +
+          '<td class="mono">' + esc(p.barcode) + '</td>' +
+          '<td>' + esc(p.name) + '</td>' +
+          '<td>' + vcell + '</td>' +
+          '<td class="mono">' + fmtMoney(p.price) + '</td>' +
+          '<td><button class="row-edit-btn" data-action="edit-product" data-barcode="' + esc(p.barcode) + '">изменить</button></td>' +
+          '</tr>';
+      }).join("");
+    }
+    var fn = filtered.length > 200 ? "Показаны первые 200 из " + filtered.length + " — уточните поиск" : "";
+    $("catalogFootnote").textContent = fn;
+  }
+
+  /* ---------- excel import ---------- */
+  function parseWorkbookRows(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(e){
+        try{
+          var data = new Uint8Array(e.target.result);
+          var wb = XLSX.read(data, {type:"array"});
+          var sheet = wb.Sheets[wb.SheetNames[0]];
+          var rows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:""});
+          resolve(rows);
+        }catch(err){ reject(err); }
+      };
+      reader.onerror = function(){ reject(reader.error); };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function detectColumns(rows){
+    if(!rows.length) return {startIdx:0, map:{barcode:0, name:1, price:2, variant:-1}};
+    var header = rows[0].map(function(c){ return String(c).toLowerCase().trim(); });
+    function find(keywords){
+      for(var i=0;i<header.length;i++){
+        for(var k=0;k<keywords.length;k++){
+          if(header[i].indexOf(keywords[k]) !== -1) return i;
+        }
+      }
+      return -1;
+    }
+    var bIdx = find(["штрихкод","штрих-код","штрих код","barcode","шк","код товара","код"]);
+    var nIdx = find(["наименование","название","товар","номенклатура","name","продукт"]);
+    var pIdx = find(["цена","price","стоимость"]);
+    var vIdx = find(["оттенок","цвет","вариант","shade","color","colour","variant"]);
+    if(bIdx >= 0 && nIdx >= 0 && pIdx >= 0) return {startIdx:1, map:{barcode:bIdx, name:nIdx, price:pIdx, variant:vIdx}};
+    return {startIdx:0, map:{barcode:0, name:1, price:2, variant:-1}};
+  }
+
+  function normalizeRows(rows){
+    var d = detectColumns(rows);
+    var out = [];
+    for(var i=d.startIdx;i<rows.length;i++){
+      var row = rows[i];
+      if(!row || row.length === 0) continue;
+      var rawBarcode = row[d.map.barcode];
+      var rawName = row[d.map.name];
+      var rawPrice = row[d.map.price];
+      var rawVariant = d.map.variant >= 0 ? row[d.map.variant] : "";
+      if(rawBarcode === undefined || rawBarcode === null || rawBarcode === "") continue;
+      var barcode = String(rawBarcode).trim();
+      var name = (rawName === undefined || rawName === null) ? "" : String(rawName).trim();
+      var variant = (rawVariant === undefined || rawVariant === null) ? "" : String(rawVariant).trim();
+      var priceStr = (rawPrice === undefined || rawPrice === null) ? "" : String(rawPrice).trim();
+      priceStr = priceStr.replace(/[^\d,.\-]/g, "").replace(",", ".");
+      var price = parseFloat(priceStr);
+      if(!barcode || !name || isNaN(price)) continue;
+      out.push({barcode:barcode, name:name, variant:variant, price: Math.round(price*100)/100});
+    }
+    var dedup = new Map();
+    out.forEach(function(it){ dedup.set(it.barcode, it); });
+    return Array.from(dedup.values());
+  }
+
+  function wireFileImport(){
+    $("fileInput").addEventListener("change", async function(e){
+      var file = e.target.files && e.target.files[0];
+      if(!file) return;
+      try{
+        var rows = await parseWorkbookRows(file);
+        var items = normalizeRows(rows);
+        if(items.length === 0){
+          showToast("Не удалось найти данные в файле", "error");
+          e.target.value = "";
+          return;
+        }
+        state.pendingImport = items;
+        var withVariant = items.filter(function(p){ return p.variant; }).length;
+        var box = $("importPreview");
+        box.hidden = false;
+        var previewRows = items.slice(0, 8).map(function(p){
+          var vcell = p.variant ? '<span class="variant-pill">' + esc(p.variant) + '</span>' : '<span style="color:var(--text-muted);">—</span>';
+          return '<tr><td class="mono">' + esc(p.barcode) + '</td><td>' + esc(p.name) + '</td><td>' + vcell + '</td><td class="mono">' + fmtMoney(p.price) + '</td></tr>';
+        }).join("");
+        var variantNote = withVariant > 0 ? (" Колонка «оттенок» найдена — заполнена у " + withVariant + " из " + items.length + ".") : "";
+        box.innerHTML =
+          '<div class="preview-bar">' +
+            '<span>Найдено <b>' + items.length + '</b> товаров. Импорт заменит текущий справочник (' + state.products.size + ' поз.).' + variantNote + '</span>' +
+            '<div class="preview-actions">' +
+              '<button class="btn btn-ghost" id="importCancel">Отмена</button>' +
+              '<button class="btn btn-primary" id="importConfirm">Импортировать</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="table-scroll" style="margin-top:10px; max-height:220px;">' +
+            '<table class="data-table"><thead><tr><th>Штрихкод</th><th>Наименование</th><th>Оттенок</th><th>Цена</th></tr></thead><tbody>' + previewRows + '</tbody></table>' +
+          '</div>';
+        $("importCancel").addEventListener("click", function(){
+          state.pendingImport = null; box.hidden = true; box.innerHTML = ""; $("fileInput").value = "";
+        });
+        $("importConfirm").addEventListener("click", async function(){
+          var btn = this;
+          btn.disabled = true; btn.textContent = "Импортируем…";
+          var ok = await replaceCatalog(state.pendingImport);
+          state.pendingImport = null;
+          box.hidden = true; box.innerHTML = "";
+          $("fileInput").value = "";
+          renderCatalogTab();
+          if(ok) showToast("Справочник обновлён: " + state.products.size + " товаров", "success");
+        });
+      }catch(err){
+        console.error(err);
+        showToast("Не удалось прочитать файл — проверьте формат .xlsx", "error");
+      }
+      e.target.value = "";
+    });
+  }
+
+  /* ---------- cart ---------- */
+  function cartTotals(){
+    var total = 0, count = 0;
+    state.cart.forEach(function(it){ total += it.price * it.qty; count += it.qty; });
+    return {total:total, count:count};
+  }
+  function pluralTov(n){
+    var mod10 = n % 10, mod100 = n % 100;
+    if(mod10 === 1 && mod100 !== 11) return "товар";
+    if([2,3,4].indexOf(mod10) !== -1 && [12,13,14].indexOf(mod100) === -1) return "товара";
+    return "товаров";
+  }
+
+  function renderCart(){
+    var t = cartTotals();
+    $("summaryTotal").textContent = fmt(t.total);
+    $("summaryCount").textContent = t.count + " " + pluralTov(t.count);
+    $("saveReceiptBtn").disabled = state.cart.size === 0;
+    if(state.cart.size === 0){
+      $("cartEmpty").hidden = false; $("cartTableWrap").hidden = true; return;
+    }
+    $("cartEmpty").hidden = true; $("cartTableWrap").hidden = false;
+    var rows = [];
+    state.cart.forEach(function(it, key){
+      rows.push(
+        '<tr data-key="' + esc(key) + '">' +
+          '<td><div class="item-name">' + esc(it.name) + (it.variant ? ' <span class="variant-pill">' + esc(it.variant) + '</span>' : '') + '</div><div class="item-code">' + (it.manual ? "введено вручную" : esc(it.barcode)) + '</div></td>' +
+          '<td class="mono">' + fmtMoney(it.price) + '</td>' +
+          '<td><div class="qty-stepper"><button class="qty-btn" data-action="dec" data-key="' + esc(key) + '" aria-label="Уменьшить">−</button><span class="qty-val mono">' + it.qty + '</span><button class="qty-btn" data-action="inc" data-key="' + esc(key) + '" aria-label="Увеличить">+</button></div></td>' +
+          '<td class="mono">' + fmtMoney(it.price * it.qty) + '</td>' +
+          '<td><button class="icon-btn" data-action="remove" data-key="' + esc(key) + '" aria-label="Удалить">✕</button></td>' +
+        '</tr>'
+      );
+    });
+    $("cartBody").innerHTML = rows.join("");
+  }
+
+  function addOrIncrement(barcode){
+    var p = state.products.get(barcode);
+    if(!p){ showUnmatched(barcode); return; }
+    var existing = state.cart.get(barcode);
+    if(existing) existing.qty += 1;
+    else state.cart.set(barcode, {barcode:barcode, name:p.name, variant:p.variant||"", price:p.price, qty:1});
+    hideUnmatched();
+    renderCart();
+    focusScan();
+  }
+
+  function showUnmatched(barcode){
+    state.unmatchedBarcode = barcode;
+    $("unmatchedCode").textContent = barcode;
+    $("uName").value = ""; $("uVariant").value = ""; $("uPrice").value = ""; $("uSaveToCatalog").checked = true;
+    $("unmatchedPanel").hidden = false;
+    setTimeout(function(){ $("uName").focus(); }, 20);
+  }
+  function hideUnmatched(){
+    state.unmatchedBarcode = null;
+    $("unmatchedPanel").hidden = true;
+  }
+
+  async function saveReceipt(){
+    if(state.cart.size === 0) return;
+    var btn = $("saveReceiptBtn");
+    btn.disabled = true;
+    var items = Array.from(state.cart.values());
+    var t = cartTotals();
+    try{
+      var { error } = await sb.from("receipts").insert({ items: items, total: t.total, item_count: t.count });
+      if(error) throw error;
+      showToast("Чек сохранён", "success");
+      state.cart.clear();
+      renderCart();
+      focusScan();
+      await loadHistory(state.historyLimit);
+    }catch(e){
+      console.error(e);
+      showToast("Не удалось сохранить чек: " + (e.message || ""), "error");
+      btn.disabled = false;
+    }
+  }
+
+  /* ---------- history ---------- */
+  async function loadHistory(limit){
+    try{
+      var { data, error } = await sb.from("receipts").select("*").order("created_at", { ascending: false }).limit(limit);
+      if(error) throw error;
+      state.historyDocs = (data || []).map(function(r){
+        return { id: r.id, items: r.items, total: Number(r.total), count: r.item_count, createdAt: r.created_at };
+      });
+    }catch(e){ console.error(e); }
+    renderHistoryTab();
+  }
+
+  function subscribeRealtime(){
+    if(state.realtimeChannel) return;
+    state.realtimeChannel = sb.channel("receipts-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "receipts" }, function(){
+        loadHistory(state.historyLimit);
+      })
+      .subscribe();
+  }
+
+  function renderHistoryTab(){
+    var list = $("historyList");
+    if(state.historyDocs.length === 0){
+      $("historyEmpty").hidden = false; list.hidden = true; $("loadMoreBtn").hidden = true; return;
+    }
+    $("historyEmpty").hidden = true; list.hidden = false;
+    list.innerHTML = state.historyDocs.map(function(r){
+      var id = r.id;
+      var lines = (r.items || []).map(function(it){
+        var label = it.name + (it.variant ? " (" + it.variant + ")" : "");
+        return '<div class="hist-line"><span>' + esc(label) + ' × ' + it.qty + '</span><span class="mono">' + fmtMoney(it.price * it.qty) + '</span></div>';
+      }).join("");
+      return (
+        '<div class="history-item">' +
+          '<button class="history-row" data-id="' + esc(id) + '" aria-expanded="false">' +
+            '<span class="mono">' + fmtDateTime(r.createdAt) + '</span>' +
+            '<span class="hist-count">' + (r.count || 0) + ' ' + pluralTov(r.count || 0) + '</span>' +
+            '<span class="hist-total mono">' + fmtMoney(r.total || 0) + '</span>' +
+            '<span class="chev">›</span>' +
+          '</button>' +
+          '<div class="history-detail" id="hist-' + esc(id) + '" hidden>' + lines + '</div>' +
+        '</div>'
+      );
+    }).join("");
+    $("loadMoreBtn").hidden = state.historyDocs.length < state.historyLimit;
+  }
+
+  /* ---------- wire everything (once, after login) ---------- */
+  var wired = false;
+  function wireEvents(){
+    if(wired) return;
+    wired = true;
+
+    $("catalogSearch").addEventListener("input", renderCatalogTab);
+
+    $("catalogBody").addEventListener("click", function(e){
+      var btn = e.target.closest("[data-action='edit-product']");
+      if(!btn) return;
+      var barcode = btn.dataset.barcode;
+      var p = state.products.get(barcode);
+      if(!p) return;
+      var tr = btn.closest("tr");
+      tr.innerHTML = '<td class="mono">' + esc(barcode) + '</td>' +
+        '<td colspan="4"><div class="edit-inline">' +
+        '<input class="input" id="editName" value="' + esc(p.name) + '" style="flex:1; min-width:120px;" placeholder="Наименование">' +
+        '<input class="input" id="editVariant" value="' + esc(p.variant || "") + '" style="width:120px;" placeholder="Оттенок">' +
+        '<input class="input input-mono" id="editPrice" value="' + p.price + '" style="width:100px;">' +
+        '<button class="btn btn-sm btn-primary" id="editSave">Сохранить</button>' +
+        '<button class="btn btn-sm btn-ghost" id="editCancel">Отмена</button>' +
+        '</div></td>';
+      $("editCancel").addEventListener("click", renderCatalogTab);
+      $("editSave").addEventListener("click", function(){
+        var name = $("editName").value.trim();
+        var variant = $("editVariant").value.trim();
+        var price = parseFloat(($("editPrice").value || "0").replace(",", "."));
+        if(!name || isNaN(price)){ showToast("Проверьте название и цену", "error"); return; }
+        upsertProduct(barcode, name, variant, Math.round(price*100)/100);
+        showToast("Товар обновлён", "success");
+      });
+    });
+
+    $("addProductBtn").addEventListener("click", function(){
+      var barcode = $("addBarcode").value.trim();
+      var name = $("addName").value.trim();
+      var variant = $("addVariant").value.trim();
+      var price = parseFloat(($("addPrice").value || "").replace(",", "."));
+      if(!barcode || !name || isNaN(price)){ showToast("Заполните штрихкод, название и цену", "error"); return; }
+      upsertProduct(barcode, name, variant, Math.round(price*100)/100);
+      $("addBarcode").value = ""; $("addName").value = ""; $("addVariant").value = ""; $("addPrice").value = "";
+      showToast("Товар добавлен в справочник", "success");
+    });
+
+    $("currencyInput").addEventListener("change", function(){ saveCurrency(this.value); });
+
+    wireFileImport();
+
+    $("cartBody").addEventListener("click", function(e){
+      var btn = e.target.closest("button[data-action]");
+      if(!btn) return;
+      var key = btn.dataset.key;
+      var it = state.cart.get(key);
+      if(!it) return;
+      if(btn.dataset.action === "inc") it.qty += 1;
+      else if(btn.dataset.action === "dec"){ it.qty -= 1; if(it.qty <= 0) state.cart.delete(key); }
+      else if(btn.dataset.action === "remove") state.cart.delete(key);
+      renderCart();
+      focusScan();
+    });
+
+    $("uCancel").addEventListener("click", function(){ hideUnmatched(); focusScan(); });
+    $("uConfirm").addEventListener("click", function(){
+      var barcode = state.unmatchedBarcode;
+      var name = $("uName").value.trim();
+      var variant = $("uVariant").value.trim();
+      var price = parseFloat(($("uPrice").value || "").replace(",", "."));
+      if(!name || isNaN(price)){ showToast("Укажите название и цену", "error"); return; }
+      price = Math.round(price*100)/100;
+      if($("uSaveToCatalog").checked){
+        upsertProduct(barcode, name, variant, price);
+      }
+      var existing = state.cart.get(barcode);
+      if(existing) existing.qty += 1;
+      else state.cart.set(barcode, {barcode:barcode, name:name, variant:variant, price:price, qty:1});
+      hideUnmatched();
+      renderCart();
+      focusScan();
+    });
+
+    $("manualAddToggle").addEventListener("click", function(){
+      var row = $("manualLookupRow");
+      row.hidden = !row.hidden;
+      if(!row.hidden) setTimeout(function(){ $("manualLookupInput").focus(); }, 20);
+    });
+    function manualLookupGo(){
+      var v = $("manualLookupInput").value.trim();
+      if(!v) return;
+      $("manualLookupInput").value = "";
+      $("manualLookupRow").hidden = true;
+      addOrIncrement(v);
+    }
+    $("manualLookupGo").addEventListener("click", manualLookupGo);
+    $("manualLookupInput").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); manualLookupGo(); } });
+
+    $("scanInput").addEventListener("keydown", function(e){
+      if(e.key === "Enter"){
+        e.preventDefault();
+        var val = this.value.trim();
+        this.value = "";
+        if(val) addOrIncrement(val);
+      }
+    });
+
+    $("clearCartBtn").addEventListener("click", function(){
+      if(state.cart.size === 0) return;
+      state.cart.clear();
+      hideUnmatched();
+      renderCart();
+      focusScan();
+    });
+
+    $("saveReceiptBtn").addEventListener("click", saveReceipt);
+
+    $("historyList").addEventListener("click", function(e){
+      var btn = e.target.closest(".history-row");
+      if(!btn) return;
+      var id = btn.dataset.id;
+      var detail = $("hist-" + id);
+      var open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
+      detail.hidden = open;
+    });
+
+    $("loadMoreBtn").addEventListener("click", function(){
+      state.historyLimit += 30;
+      loadHistory(state.historyLimit);
+    });
+  }
+
+  checkSession();
+})();
+</script>
+</body>
+</html>

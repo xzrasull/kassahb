@@ -1,0 +1,26 @@
+# Local secrets / credentials
+.env
+.env.*
+*.local
+*.local.*
+.local.env
+SUPABASE_CREDENTIALS.local.txt
+config.local.js
+config.local.*.js
+
+# Operating system / editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Optional: if this project grows and installs dependencies
+node_modules/
