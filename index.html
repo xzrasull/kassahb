@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="html5-qrcode.js"></script>
 <script src="config.js"></script>
 <script>
   (function(){
@@ -205,6 +206,29 @@
     background:var(--surface-2); color:var(--text); font-family:var(--mono); font-size:16px; letter-spacing:0.02em;
   }
   #scanInput:focus{ outline:2px solid var(--accent); outline-offset:1px; background:var(--surface); }
+  .cam-scan-btn{ display:none; padding:10px 12px; flex-shrink:0; }
+  .cam-scan-btn svg{ width:18px; height:18px; }
+  @media (max-width:820px){ .cam-scan-btn{ display:inline-flex; } }
+
+  /* camera scanner overlay */
+  .scanner-overlay{ position:fixed; inset:0; z-index:60; background:#000; display:flex; flex-direction:column; }
+  .scanner-topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; color:#fff;
+    font-size:14px; font-weight:700; padding:14px 16px calc(10px + env(safe-area-inset-top, 0px));
+  }
+  .scanner-close{
+    appearance:none; border:none; background:rgba(255,255,255,0.15); color:#fff; cursor:pointer;
+    width:32px; height:32px; border-radius:999px; font-size:16px; line-height:1; flex-shrink:0;
+  }
+  .scanner-reader-wrap{ flex:1; position:relative; overflow:hidden; background:#000; }
+  .scanner-reader{ position:absolute; inset:0; }
+  .scanner-reader video{ width:100% !important; height:100% !important; object-fit:cover; }
+  .scanner-frame{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:78%; max-width:320px; aspect-ratio:5/3; border:3px solid rgba(255,255,255,0.85);
+    border-radius:16px; pointer-events:none; box-shadow:0 0 0 2000px rgba(0,0,0,0.35);
+  }
+  .scanner-hint{ color:rgba(255,255,255,0.75); font-size:12.5px; text-align:center; padding:10px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
 
   /* unmatched panel */
   .unmatched{ margin-top:12px; padding:14px; border-radius:12px; background:var(--warn-soft); border:1px solid var(--border); }
@@ -395,6 +419,9 @@
             <svg class="scan-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M11 8v8M14 8v8M17 8v8"/></svg>
             <input id="scanInput" type="text" inputmode="text" autocomplete="off" placeholder="Отсканируйте штрихкод…" />
           </div>
+          <button class="btn cam-scan-btn" id="camScanBtn" type="button" aria-label="Сканировать камерой" title="Сканировать камерой">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
           <button class="btn" id="manualAddToggle" type="button">Ввести вручную</button>
         </div>
 
@@ -512,6 +539,18 @@
   </section>
 
   <div class="toast" id="toast"></div>
+
+  <div id="scannerOverlay" class="scanner-overlay" hidden>
+    <div class="scanner-topbar">
+      <span>Наведите камеру на штрихкод</span>
+      <button class="scanner-close" id="scannerClose" type="button" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="scanner-reader-wrap">
+      <div id="scannerReader" class="scanner-reader"></div>
+      <div class="scanner-frame" id="scannerFrame"></div>
+    </div>
+    <div class="scanner-hint">Товары будут добавляться в чек автоматически</div>
+  </div>
 </div>
 
 <script>
@@ -538,7 +577,8 @@
     realtimeChannel: null,
     unmatchedBarcode: null,
     pendingImport: null,
-    currentTab: "kassa"
+    currentTab: "kassa",
+    scannerOpen: false
   };
 
   function $(id){ return document.getElementById(id); }
@@ -579,6 +619,7 @@
   });
 
   function focusScan(){
+    if(state.scannerOpen) return;
     setTimeout(function(){
       var el = $("scanInput");
       if(el && document.activeElement !== el && !isTypingElsewhere()) el.focus();
@@ -589,6 +630,58 @@
     if(!a) return false;
     var tag = a.tagName;
     return (tag === "INPUT" || tag === "TEXTAREA") && a.id !== "scanInput";
+  }
+
+  /* ---------- camera barcode scanner ---------- */
+  var scannerInstance = null;
+  var scanHandled = false;
+
+  function openScanner(){
+    if(typeof Html5Qrcode === "undefined"){
+      showToast("Не удалось загрузить модуль камеры — проверьте подключение к интернету", "error");
+      return;
+    }
+    state.scannerOpen = true;
+    scanHandled = false;
+    $("scannerOverlay").hidden = false;
+    scannerInstance = new Html5Qrcode("scannerReader", {
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39
+      ],
+      verbose: false
+    });
+    scannerInstance.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 140 } },
+      onScanSuccess,
+      function(){ /* per-frame miss — ignore */ }
+    ).catch(function(err){
+      console.error(err);
+      closeScanner();
+      showToast("Нет доступа к камере — разрешите доступ в настройках браузера", "error");
+    });
+  }
+
+  function onScanSuccess(decodedText){
+    if(scanHandled) return;
+    var code = String(decodedText).trim();
+    if(!code) return;
+    scanHandled = true;
+    if(navigator.vibrate) navigator.vibrate(60);
+    closeScanner();
+    addOrIncrement(code);
+  }
+
+  function closeScanner(){
+    state.scannerOpen = false;
+    $("scannerOverlay").hidden = true;
+    var inst = scannerInstance;
+    scannerInstance = null;
+    if(inst){
+      inst.stop().then(function(){ inst.clear(); }).catch(function(){});
+    }
   }
 
   /* ---------- theme ---------- */
@@ -638,6 +731,7 @@
   });
 
   $("logoutBtn").addEventListener("click", async function(){
+    if(state.scannerOpen) closeScanner();
     if(state.realtimeChannel) sb.removeChannel(state.realtimeChannel);
     await sb.auth.signOut();
     location.reload();
@@ -1106,6 +1200,9 @@
     }
     $("manualLookupGo").addEventListener("click", manualLookupGo);
     $("manualLookupInput").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); manualLookupGo(); } });
+
+    $("camScanBtn").addEventListener("click", openScanner);
+    $("scannerClose").addEventListener("click", closeScanner);
 
     $("scanInput").addEventListener("keydown", function(e){
       if(e.key === "Enter"){
